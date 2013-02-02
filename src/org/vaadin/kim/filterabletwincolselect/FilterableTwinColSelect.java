@@ -34,13 +34,13 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 
 	private Container containerDataSource;
 
-	private TextField filterUnselected;
+	private TextField filterUnselected = new TextField();
 
-	private TextField filterSelected;
+	private TextField filterSelected = new TextField();
 
-	private ListSelect unselected;
+	private ListSelect unselected =  new ListSelect();
 
-	private ListSelect selected;
+	private ListSelect selected = new ListSelect();
 
 	private ClickListener addSelectedListener;
 
@@ -61,12 +61,21 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 	// Property <-> ItemId map
 	private Map<Property.ValueChangeNotifier, Object> properties = new HashMap<Property.ValueChangeNotifier, Object>();
 
+	private HorizontalLayout layout;
+	
+	public FilterableTwinColSelect() {
+		unselectedContainer.addContainerProperty("caption", Object.class, null);
+		selectedContainer.addContainerProperty("caption", Object.class, null);
+		setValue(new HashSet<Object>(), false);
+		
+		layout = new HorizontalLayout();
+		layout.setSizeFull();
+		setWidth("300px");
+		setHeight("200px");
+	}
+
 	@Override
 	protected Component initContent() {
-		HorizontalLayout layout = new HorizontalLayout();
-		layout.setWidth("300px");
-		layout.setHeight("200px");
-
 		Layout unselectedColumn = initializeUnselectedColumn();
 		layout.addComponent(unselectedColumn);
 
@@ -81,9 +90,6 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 
 		layout.setSpacing(true);
 		layout.setComponentAlignment(buttonColumn, Alignment.MIDDLE_CENTER);
-
-		setValue(new HashSet<Object>(), false);
-
 		return layout;
 	}
 
@@ -91,7 +97,6 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 		VerticalLayout unselectedColumn = new VerticalLayout();
 		unselectedColumn.setSizeFull();
 
-		filterUnselected = new TextField();
 		filterUnselected.addTextChangeListener(new TextChangeListener() {
 
 			private static final long serialVersionUID = 1L;
@@ -104,12 +109,10 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 			}
 		});
 		filterUnselected.setWidth("100%");
-		filterUnselected.setInputPrompt("Filter...");
 
-		unselected = new ListSelect(null, unselectedContainer);
+		unselected.setContainerDataSource(unselectedContainer);
 		unselected.setMultiSelect(true);
 		unselected.setSizeFull();
-		unselectedContainer.addContainerProperty("caption", Object.class, null);
 		unselected.setItemCaptionPropertyId("caption");
 		unselectedContainer.sort(new String[] { "caption" },
 				new boolean[] { true });
@@ -125,9 +128,7 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 		VerticalLayout selectedColumn = new VerticalLayout();
 		selectedColumn.setSizeFull();
 
-		filterSelected = new TextField();
 		filterSelected.setWidth("100%");
-		filterSelected.setInputPrompt("Filter...");
 		filterSelected.addTextChangeListener(new TextChangeListener() {
 
 			private static final long serialVersionUID = 1L;
@@ -140,10 +141,9 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 			}
 		});
 
-		selected = new ListSelect(null, selectedContainer);
+		selected.setContainerDataSource(selectedContainer);
 		selected.setMultiSelect(true);
 		selected.setSizeFull();
-		selectedContainer.addContainerProperty("caption", Object.class, null);
 		selected.setItemCaptionPropertyId("caption");
 		selectedContainer.sort(new String[] { "caption" },
 				new boolean[] { true });
@@ -377,14 +377,14 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 
 		// Copy items to the new container
 		for (Object itemId : newDataSource.getItemIds()) {
-			copyItem(itemId, newDataSource, unselected);
+			copyItem(itemId, newDataSource, unselectedContainer);
 		}
 
 		if (preserveSelections) {
 			// Add all selected items to the selected ListSelect
 			for (Object itemId : getValue()) {
-				copyItem(itemId, unselected.getContainerDataSource(),
-						selected.getContainerDataSource());
+				copyItem(itemId, unselectedContainer,
+						selectedContainer);
 			}
 
 			// Remove all selected items from the unselected ListSelect
@@ -551,4 +551,27 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 			}
 		}
 	}
+	
+	public void setFilterInputPrompt(String inputPrompt) {
+		filterSelected.setInputPrompt(inputPrompt);
+		filterUnselected.setInputPrompt(inputPrompt);
+	}
+	
+	@Override
+	public void setWidth(float width, Unit unit) {
+		if(width < 0) {
+			width = 300;
+		}
+		super.setWidth(width, unit);
+	}
+	
+	
+	@Override
+	public void setHeight(float height, Unit unit) {
+		if(height < 0) {
+			height = 200;
+		}
+		super.setHeight(height, unit);
+	}
+	
 }
