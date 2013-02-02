@@ -17,6 +17,7 @@ import com.vaadin.ui.VerticalLayout;
 public class FilterabletwincolselectUI extends UI {
 
 	private FilterableTwinColSelect select;
+	private IndexedContainer container;
 
 	@Override
 	protected void init(VaadinRequest request) {
@@ -41,8 +42,18 @@ public class FilterabletwincolselectUI extends UI {
 			}
 		});
 		layout.addComponent(button2);
+		Button button3 = new Button("Add item");
+		button3.addClickListener(new Button.ClickListener() {
+			@SuppressWarnings("unchecked")
+			public void buttonClick(ClickEvent event) {
+				Object itemId = container.addItem();
+				Item item = container.getItem(itemId);
+				item.getItemProperty("name").setValue("Iceland");
+			}
+		});
+		layout.addComponent(button3);
 
-		IndexedContainer container = new IndexedContainer();
+		container = new IndexedContainer();
 		container.addContainerProperty("name", String.class, null);
 		addCountry(container, "Finland");
 		addCountry(container, "Sweden");
@@ -52,7 +63,7 @@ public class FilterabletwincolselectUI extends UI {
 		select = new FilterableTwinColSelect();
 		layout.addComponent(select);
 		select.setContainerDataSource(container);
-//		select.setItemCaptionPropertyId("name");
+		select.setItemCaptionPropertyId("name");
 
 		Label label = new Label();
 		label.setConverter(new CollectionToStringConverter());

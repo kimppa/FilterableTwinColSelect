@@ -1,7 +1,9 @@
 package org.vaadin.kim.filterabletwincolselect;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import com.vaadin.data.Container;
@@ -9,6 +11,8 @@ import com.vaadin.data.Container.ItemSetChangeEvent;
 import com.vaadin.data.Item;
 import com.vaadin.data.Property;
 import com.vaadin.data.util.IndexedContainer;
+import com.vaadin.event.FieldEvents.TextChangeEvent;
+import com.vaadin.event.FieldEvents.TextChangeListener;
 import com.vaadin.ui.Alignment;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.Button.ClickEvent;
@@ -48,6 +52,15 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 
 	private CssLayout buttonLayout;
 
+	private Object itemCaptionPropertyId;
+
+	private IndexedContainer selectedContainer = new IndexedContainer();
+
+	private IndexedContainer unselectedContainer = new IndexedContainer();
+
+	// Property <-> ItemId map
+	private Map<Property.ValueChangeNotifier, Object> properties = new HashMap<Property.ValueChangeNotifier, Object>();
+
 	@Override
 	protected Component initContent() {
 		HorizontalLayout layout = new HorizontalLayout();
@@ -79,25 +92,27 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 		unselectedColumn.setSizeFull();
 
 		filterUnselected = new TextField();
-		filterUnselected.addValueChangeListener(new ValueChangeListener() {
+		filterUnselected.addTextChangeListener(new TextChangeListener() {
+
+			private static final long serialVersionUID = 1L;
 
 			@Override
-			public void valueChange(
-					com.vaadin.data.Property.ValueChangeEvent event) {
-				((Container.Filterable) unselected.getContainerDataSource())
-						.removeAllContainerFilters();
-				// ((Container.Filterable
-				// )unselected.getContainerDataSource()).addContainerProperty(propertyId,
-				// type, defaultValue)
-
+			public void textChange(TextChangeEvent event) {
+				unselectedContainer.removeAllContainerFilters();
+				unselectedContainer.addContainerFilter("caption",
+						event.getText(), true, false);
 			}
 		});
 		filterUnselected.setWidth("100%");
 		filterUnselected.setInputPrompt("Filter...");
 
-		unselected = new ListSelect();
+		unselected = new ListSelect(null, unselectedContainer);
 		unselected.setMultiSelect(true);
 		unselected.setSizeFull();
+		unselectedContainer.addContainerProperty("caption", Object.class, null);
+		unselected.setItemCaptionPropertyId("caption");
+		unselectedContainer.sort(new String[] { "caption" },
+				new boolean[] { true });
 
 		unselectedColumn.addComponent(filterUnselected);
 		unselectedColumn.addComponent(unselected);
@@ -113,10 +128,25 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 		filterSelected = new TextField();
 		filterSelected.setWidth("100%");
 		filterSelected.setInputPrompt("Filter...");
+		filterSelected.addTextChangeListener(new TextChangeListener() {
 
-		selected = new ListSelect();
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public void textChange(TextChangeEvent event) {
+				selectedContainer.removeAllContainerFilters();
+				selectedContainer.addContainerFilter("caption",
+						event.getText(), true, false);
+			}
+		});
+
+		selected = new ListSelect(null, selectedContainer);
 		selected.setMultiSelect(true);
 		selected.setSizeFull();
+		selectedContainer.addContainerProperty("caption", Object.class, null);
+		selected.setItemCaptionPropertyId("caption");
+		selectedContainer.sort(new String[] { "caption" },
+				new boolean[] { true });
 
 		selectedColumn.addComponent(filterSelected);
 		selectedColumn.addComponent(selected);
@@ -151,12 +181,21 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 	private void copyItem(Object itemId, Container fromContainer,
 			Container toContainer) {
 		Item item = toContainer.addItem(itemId);
-		for (Object propertyId : fromContainer.getContainerPropertyIds()) {
-			Property property = item.getItemProperty(propertyId);
-			Object value = fromContainer.getItem(itemId)
-					.getItemProperty(propertyId).getValue();
-			property.setValue(value);
+		if(item == null) {
+			return;
 		}
+		Object caption;
+		if (fromContainer == selectedContainer
+				|| fromContainer == unselectedContainer) {
+			caption = fromContainer.getContainerProperty(itemId, "caption")
+					.getValue();
+		} else {
+			caption = itemCaptionPropertyId == null ? itemId : fromContainer
+					.getContainerProperty(itemId, itemCaptionPropertyId)
+					.getValue();
+		}
+
+		item.getItemProperty("caption").setValue(caption);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -173,7 +212,11 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 		}
 
 		// Remove all selected items from the unselected ListSelect
-		unselected.removeAllItems();
+		// Don't use removeAllItems(), since there might be filters applied
+		for (Object itemId : new HashSet<Object>(unselected.getItemIds())) {
+			unselected.removeItem(itemId);
+		}
+
 		fireValueChange(false);
 	}
 
@@ -209,9 +252,12 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 					unselected.getContainerDataSource());
 		}
 
-		getValue().clear();
 		// Remove all selected items from the unselected ListSelect
-		selected.removeAllItems();
+		// Don't use removeAllItems(), since there might be filters applied
+		for (Object itemId : new HashSet<Object>(selected.getItemIds())) {
+			selected.removeItem(itemId);
+			getValue().remove(itemId);
+		}
 		fireValueChange(false);
 	}
 
@@ -284,23 +330,44 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 
 	@Override
 	public void setContainerDataSource(Container newDataSource) {
-		IndexedContainer unselectedContainer = new IndexedContainer();
-		unselected.setContainerDataSource(unselectedContainer);
-
-		// In case new datasource is null, then clear all selections
-		if (newDataSource == null) {
-			selected.setContainerDataSource(new IndexedContainer());
+		// If the same container is already set, then ignore this method call
+		if (newDataSource == containerDataSource) {
 			return;
 		}
 
-		IndexedContainer selectedContainer = new IndexedContainer();
+		// Check if the currently assigned itemCaptionPropertyId exists in the
+		// new container
+		if (newDataSource != null
+				&& !newDataSource.getContainerPropertyIds().contains(
+						itemCaptionPropertyId)) {
+			itemCaptionPropertyId = null;
+		}
 
-		// Copy all properties to the new containers
-		for (Object propertyId : newDataSource.getContainerPropertyIds()) {
-			unselectedContainer.addContainerProperty(propertyId,
-					newDataSource.getType(propertyId), null);
-			selectedContainer.addContainerProperty(propertyId,
-					newDataSource.getType(propertyId), null);
+		if (containerDataSource != null
+				&& containerDataSource instanceof Container.ItemSetChangeNotifier) {
+			((Container.ItemSetChangeNotifier) containerDataSource)
+					.removeItemSetChangeListener(this);
+		}
+		containerDataSource = newDataSource;
+		if (containerDataSource instanceof Container.ItemSetChangeNotifier) {
+			((Container.ItemSetChangeNotifier) containerDataSource)
+					.addItemSetChangeListener(this);
+		}
+		updateContainers(newDataSource, false);
+	}
+
+	private void updateContainers(Container newDataSource,
+			boolean preserveSelections) {
+		containerDataSource = newDataSource;
+		unselectedContainer.removeAllItems();
+
+		// In case new datasource is null, then clear all selections
+		if (newDataSource == null) {
+			selectedContainer.removeAllItems();
+			clearAllValueChangeListeners();
+			getValue().clear();
+			fireValueChange(true);
+			return;
 		}
 
 		// Copy items to the new container
@@ -308,7 +375,32 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 			copyItem(itemId, newDataSource, unselected);
 		}
 
-		selected.setContainerDataSource(selectedContainer);
+		if (preserveSelections) {
+			// Add all selected items to the selected ListSelect
+			for (Object itemId : getValue()) {
+				copyItem(itemId, unselected.getContainerDataSource(),
+						selected.getContainerDataSource());
+			}
+
+			// Remove all selected items from the unselected ListSelect
+			boolean fireEvent = false;
+			for (Object itemId : getValue()) {
+				if (unselected.getItem(itemId) == null) {
+					getValue().remove(itemId);
+					fireEvent = true;
+				} else {
+					unselected.removeItem(itemId);
+				}
+			}
+			if (fireEvent) {
+				fireValueChange(true);
+			}
+		} else {
+			getValue().clear();
+			fireValueChange(true);
+		}
+		clearAllValueChangeListeners();
+		registerPropertyListeners();
 	}
 
 	@Override
@@ -355,25 +447,35 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 	}
 
 	public void setItemCaptionPropertyId(Object propertyId) {
-		unselected.setItemCaptionPropertyId(propertyId);
-		selected.setItemCaptionPropertyId(propertyId);
+		itemCaptionPropertyId = propertyId;
+		updateItemCaptions();
 	}
 
+	@SuppressWarnings("unchecked")
 	public void setItemCaption(Object itemId, String caption) {
-		unselected.setItemCaption(itemId, caption);
-		selected.setItemCaption(itemId, caption);
+		Item item = unselectedContainer.getItem(itemId);
+		if (item != null) {
+			item.getItemProperty("caption").setValue(caption);
+		}
+		item = selectedContainer.getItem(itemId);
+		if (item != null) {
+			item.getItemProperty("caption").setValue(caption);
+		}
 	}
 
 	public String getItemCaption(Object itemId) {
-		String caption = unselected.getItemCaption(itemId);
-		if (caption == null || caption.isEmpty()) {
-			caption = selected.getItemCaption(itemId);
+		Object caption = unselectedContainer.getContainerProperty(itemId,
+				"caption").getValue();
+		if (caption == null) {
+			caption = selected.getContainerProperty(itemId, "caption")
+					.getValue();
 		}
-		return caption;
+
+		return caption == null ? null : caption.toString();
 	}
 
 	public Object getItemCaptionPropertyId() {
-		return unselected.getItemCaptionPropertyId();
+		return itemCaptionPropertyId;
 	}
 
 	public void setButtonWidth(String width) {
@@ -382,6 +484,63 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 
 	@Override
 	public void containerItemSetChange(ItemSetChangeEvent event) {
-		// TODO
+		updateContainers(containerDataSource, true);
+	}
+
+	@SuppressWarnings("unchecked")
+	private void updateItemCaptions() {
+		for (Object itemId : selectedContainer.getItemIds()) {
+			Object caption = containerDataSource.getContainerProperty(itemId,
+					itemCaptionPropertyId).getValue();
+			selectedContainer.getContainerProperty(itemId, "caption").setValue(
+					caption);
+		}
+		for (Object itemId : unselectedContainer.getItemIds()) {
+			Object caption = containerDataSource.getContainerProperty(itemId,
+					itemCaptionPropertyId).getValue();
+			unselectedContainer.getContainerProperty(itemId, "caption")
+					.setValue(caption);
+		}
+	}
+
+	private void clearAllValueChangeListeners() {
+		for (Property.ValueChangeNotifier property : properties.keySet()) {
+			property.removeValueChangeListener(this);
+		}
+		properties.clear();
+	}
+
+	private void registerPropertyListeners() {
+		if (itemCaptionPropertyId != null) {
+			for (Object itemId : containerDataSource.getItemIds()) {
+				Property property = containerDataSource.getContainerProperty(
+						itemId, itemCaptionPropertyId);
+				if (property instanceof Property.ValueChangeNotifier) {
+					((Property.ValueChangeNotifier) property)
+							.addValueChangeListener(this);
+					properties.put((Property.ValueChangeNotifier) property,
+							itemId);
+				}
+
+			}
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public void valueChange(com.vaadin.data.Property.ValueChangeEvent event) {
+		Object itemId = properties.get(event.getProperty());
+		if (itemId != null) {
+			Item item = selectedContainer.getItem(itemId);
+			if (item != null) {
+				item.getItemProperty("caption").setValue(
+						event.getProperty().getValue());
+			}
+			item = unselectedContainer.getItem(itemId);
+			if (item != null) {
+				item.getItemProperty("caption").setValue(
+						event.getProperty().getValue());
+			}
+		}
 	}
 }
