@@ -29,12 +29,14 @@ public class FilterabletwincolselectUI extends UI {
 		button.addClickListener(new Button.ClickListener() {
 			private int i = 0;
 
+			@SuppressWarnings("unchecked")
 			public void buttonClick(ClickEvent event) {
-				select.setItemCaption(2, "Sweden " + i++);
+				container.getContainerProperty(2, "name").setValue("Sweden " + i++);
+//				select.setItemCaption(2, "Sweden " + i++);
 			}
 		});
 		layout.addComponent(button);
-		
+
 		Button button2 = new Button("Get item caption");
 		button2.addClickListener(new Button.ClickListener() {
 			public void buttonClick(ClickEvent event) {
@@ -52,6 +54,13 @@ public class FilterabletwincolselectUI extends UI {
 			}
 		});
 		layout.addComponent(button3);
+		Button button4 = new Button("remove item");
+		button4.addClickListener(new Button.ClickListener() {
+			public void buttonClick(ClickEvent event) {
+				container.removeItem(2);
+			}
+		});
+		layout.addComponent(button4);
 
 		container = new IndexedContainer();
 		container.addContainerProperty("name", String.class, null);

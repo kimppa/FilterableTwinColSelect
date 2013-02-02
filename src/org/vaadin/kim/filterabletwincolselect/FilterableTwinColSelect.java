@@ -180,8 +180,12 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 	@SuppressWarnings("unchecked")
 	private void copyItem(Object itemId, Container fromContainer,
 			Container toContainer) {
+		if (fromContainer.getItem(itemId) == null) {
+			return;
+		}
+
 		Item item = toContainer.addItem(itemId);
-		if(item == null) {
+		if (item == null) {
 			return;
 		}
 		Object caption;
@@ -356,15 +360,16 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 		updateContainers(newDataSource, false);
 	}
 
+	@SuppressWarnings("unchecked")
 	private void updateContainers(Container newDataSource,
 			boolean preserveSelections) {
 		containerDataSource = newDataSource;
 		unselectedContainer.removeAllItems();
+		selectedContainer.removeAllItems();
+		clearAllValueChangeListeners();
 
 		// In case new datasource is null, then clear all selections
 		if (newDataSource == null) {
-			selectedContainer.removeAllItems();
-			clearAllValueChangeListeners();
 			getValue().clear();
 			fireValueChange(true);
 			return;
@@ -384,14 +389,16 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 
 			// Remove all selected items from the unselected ListSelect
 			boolean fireEvent = false;
+			Set<Object> itemsToRemove = new HashSet<Object>();
 			for (Object itemId : getValue()) {
 				if (unselected.getItem(itemId) == null) {
-					getValue().remove(itemId);
+					itemsToRemove.add(itemId);
 					fireEvent = true;
 				} else {
 					unselected.removeItem(itemId);
 				}
 			}
+			getValue().removeAll(itemsToRemove);
 			if (fireEvent) {
 				fireValueChange(true);
 			}
@@ -399,7 +406,6 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 			getValue().clear();
 			fireValueChange(true);
 		}
-		clearAllValueChangeListeners();
 		registerPropertyListeners();
 	}
 
@@ -448,6 +454,8 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 
 	public void setItemCaptionPropertyId(Object propertyId) {
 		itemCaptionPropertyId = propertyId;
+		clearAllValueChangeListeners();
+		registerPropertyListeners();
 		updateItemCaptions();
 	}
 
