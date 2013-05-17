@@ -11,6 +11,7 @@ import com.vaadin.data.Container.ItemSetChangeEvent;
 import com.vaadin.data.Item;
 import com.vaadin.data.Property;
 import com.vaadin.data.util.IndexedContainer;
+import com.vaadin.data.util.converter.Converter.ConversionException;
 import com.vaadin.event.FieldEvents.TextChangeEvent;
 import com.vaadin.event.FieldEvents.TextChangeListener;
 import com.vaadin.ui.Alignment;
@@ -38,7 +39,7 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 
 	private TextField filterSelected = new TextField();
 
-	private ListSelect unselected =  new ListSelect();
+	private ListSelect unselected = new ListSelect();
 
 	private ListSelect selected = new ListSelect();
 
@@ -62,12 +63,12 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 	private Map<Property.ValueChangeNotifier, Object> properties = new HashMap<Property.ValueChangeNotifier, Object>();
 
 	private HorizontalLayout layout;
-	
+
 	public FilterableTwinColSelect() {
 		unselectedContainer.addContainerProperty("caption", Object.class, null);
 		selectedContainer.addContainerProperty("caption", Object.class, null);
 		setValue(new HashSet<Object>(), false);
-		
+
 		layout = new HorizontalLayout();
 		layout.setSizeFull();
 		setWidth("300px");
@@ -383,8 +384,7 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 		if (preserveSelections) {
 			// Add all selected items to the selected ListSelect
 			for (Object itemId : getValue()) {
-				copyItem(itemId, unselectedContainer,
-						selectedContainer);
+				copyItem(itemId, unselectedContainer, selectedContainer);
 			}
 
 			// Remove all selected items from the unselected ListSelect
@@ -551,27 +551,63 @@ public class FilterableTwinColSelect extends CustomField<Set> implements
 			}
 		}
 	}
-	
+
 	public void setFilterInputPrompt(String inputPrompt) {
 		filterSelected.setInputPrompt(inputPrompt);
 		filterUnselected.setInputPrompt(inputPrompt);
 	}
-	
+
 	@Override
 	public void setWidth(float width, Unit unit) {
-		if(width < 0) {
+		if (width < 0) {
 			width = 300;
 		}
 		super.setWidth(width, unit);
 	}
-	
-	
+
 	@Override
 	public void setHeight(float height, Unit unit) {
-		if(height < 0) {
+		if (height < 0) {
 			height = 200;
 		}
 		super.setHeight(height, unit);
 	}
-	
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public void setValue(Set newFieldValue)
+			throws com.vaadin.data.Property.ReadOnlyException,
+			ConversionException {
+		super.setValue(newFieldValue);
+
+		if (newFieldValue == null) {
+			clearAllSelections();
+		}
+
+		for (Object itemId : new HashSet((Collection) selected.getItemIds())) {
+			if (!newFieldValue.contains(itemId)) {
+				copyItem(itemId, selected.getContainerDataSource(),
+						unselected.getContainerDataSource());
+				selected.removeItem(itemId);
+			}
+		}
+
+		// Add all selected items to the selected ListSelect
+		for (Object itemId : newFieldValue) {
+			copyItem(itemId, unselected.getContainerDataSource(),
+					selected.getContainerDataSource());
+		}
+
+		// Remove all selected items from the unselected ListSelect
+		for (Object itemId : newFieldValue) {
+			unselected.removeItem(itemId);
+		}
+
+	}
+
+	private void clearAllSelections() {
+		// TODO Auto-generated method stub
+
+	}
+
 }

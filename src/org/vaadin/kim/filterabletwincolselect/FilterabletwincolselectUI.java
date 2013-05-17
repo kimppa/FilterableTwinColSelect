@@ -1,10 +1,14 @@
 package org.vaadin.kim.filterabletwincolselect;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import com.vaadin.data.Item;
 import com.vaadin.data.util.IndexedContainer;
 import com.vaadin.server.VaadinRequest;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.Button.ClickEvent;
+import com.vaadin.ui.Button.ClickListener;
 import com.vaadin.ui.Label;
 import com.vaadin.ui.Notification;
 import com.vaadin.ui.UI;
@@ -116,7 +120,7 @@ public class FilterabletwincolselectUI extends UI {
 		container = new IndexedContainer();
 		container.addContainerProperty("name", String.class, null);
 		for (int i = 0; i < iso3166.length; i = i + 2) {
-			Item item = container.addItem(iso3166[i+1]);
+			Item item = container.addItem(iso3166[i + 1]);
 			item.getItemProperty("name").setValue(iso3166[i]);
 		}
 
@@ -135,6 +139,37 @@ public class FilterabletwincolselectUI extends UI {
 
 		layout.addComponent(label);
 		layout.setExpandRatio(select, 1);
+
+		layout.addComponent(new Button("Set value", new ClickListener() {
+
+			@Override
+			public void buttonClick(ClickEvent event) {
+				Set<String> values = new HashSet<String>();
+				values.add("FI");
+				values.add("DE");
+				select.setValue(values);
+
+			}
+		}));
+		layout.addComponent(new Button("Set value 2", new ClickListener() {
+			
+			@Override
+			public void buttonClick(ClickEvent event) {
+				Set<String> values = new HashSet<String>();
+				values.add("US");
+				values.add("NO");
+				select.setValue(values);
+				
+			}
+		}));
+		layout.addComponent(new Button("Show value", new ClickListener() {
+
+			@Override
+			public void buttonClick(ClickEvent event) {
+				Set<?> values = select.getValue();
+				Notification.show(values.toString());
+			}
+		}));
 
 	}
 
